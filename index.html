@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cronómetro por Voz - Calistenia</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <main>
+    <h1>Cronómetro por Voz</h1>
+
+    <!-- Ejercicio a cronometrar: se elige de la lista (FR-001). Las opciones -->
+    <!-- se completan desde cronometro.js con los ejercicios fijos + los que -->
+    <!-- el usuario fue agregando. -->
+    <label for="ejercicio">Ejercicio:</label>
+    <select id="ejercicio"></select>
+
+    <!-- Solo se muestra cuando se elige "+ Agregar nuevo ejercicio" -->
+    <input type="text" id="ejercicio-nuevo" placeholder="Nombre del nuevo ejercicio" style="display: none;">
+
+    <!-- Récord anterior del ejercicio elegido (User Story 2) -->
+    <p id="record"></p>
+
+    <!-- Tiempo del cronómetro, bien grande para leerlo de un vistazo -->
+    <p id="cronometro">00:00</p>
+
+    <!-- Botones de respaldo por si la voz falla o no está disponible (User Story 3) -->
+    <div class="botones">
+      <button type="button" id="boton-iniciar">Iniciar</button>
+      <button type="button" id="boton-parar">Parar</button>
+    </div>
+
+    <!-- Avisos para el usuario, por ejemplo "elegí un ejercicio primero" -->
+    <p id="aviso"></p>
+  </main>
+
+  <!-- Orden importante: datos.js primero (no depende de nada),
+       después cronometro.js (usa las funciones de datos.js),
+       y por último voz.js (usa las funciones de cronometro.js). -->
+  <script src="datos.js"></script>
+  <script src="cronometro.js"></script>
+  <script src="voz.js"></script>
+</body>
+</html>
