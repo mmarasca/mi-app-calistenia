@@ -32,14 +32,23 @@ para el formato exacto en JSON.
 
 El nombre del ejercicio se elige de una lista desplegable, formada por:
 
-1. **Ejercicios fijos**, siempre presentes: Vertical, Front Lever, L-Sit, Planche.
+1. **Ejercicios fijos**, siempre presentes, cada uno con su categoría: Vertical (Equilibrio),
+   Front Lever (Tirón), L-Sit (Core), Planche (Empuje).
 2. **Ejercicios personalizados**, agregados por el usuario con la opción "+ Agregar nuevo
-   ejercicio". Se guardan en una lista aparte (separada de los Intentos) para que reaparezcan la
-   próxima vez. Ver [contracts/storage-schema.md](./contracts/storage-schema.md).
+   ejercicio", junto con su categoría. Se guardan en una lista aparte (separada de los Intentos)
+   para que reaparezcan la próxima vez. Ver [contracts/storage-schema.md](./contracts/storage-schema.md).
 
 Un ejercicio personalizado se guarda en el momento en que el usuario inicia un intento con ese
 nombre nuevo (no antes, mientras todavía lo está escribiendo). No se guarda si el nombre está
 vacío o si ya existe (sea fijo o ya agregado antes).
+
+### Categoría
+
+Al agregar un ejercicio nuevo, el usuario también elige su categoría: una de las ya conocidas
+(Empuje, Tirón, Equilibrio, Core) o una distinta escrita a mano con la opción "+ Otra categoría".
+Es solo un dato para agrupar/mostrar junto al nombre del ejercicio (por ejemplo, en el carrusel de
+selección); no afecta el cronómetro, el récord ni la voz. Si no se elige ninguna (o la escrita a
+mano queda vacía), se guarda como "Sin categoría" en vez de dejarla vacía.
 
 ## Récord (valor calculado, no guardado)
 
@@ -47,6 +56,35 @@ Para un ejercicio dado, el récord es el `duracionMs` más alto entre todos los 
 con ese mismo `ejercicio` (FR-007, FR-011). Si no hay ningún intento guardado todavía para ese
 ejercicio, no hay récord (FR-008: se debe avisar claramente "sin récord previo", nunca mostrar 0 o
 un campo vacío como si fuera un tiempo real).
+
+## Racha (valor calculado, no guardada)
+
+Igual que el récord, la racha no se guarda aparte: se recalcula a partir de los mismos Intentos
+guardados, tomando la fecha del día (hora local, no UTC) en que se hizo cada uno.
+
+- Un día cuenta como **activo** si hay guardado al menos un Intento con esa fecha, sin importar el
+  ejercicio.
+- Los **domingos** son un día libre: no cortan la racha aunque no haya ningún Intento guardado ese
+  día.
+- La racha es la cantidad de días, contando hacia atrás desde hoy, que son activos o domingo, sin
+  cortarse. Se corta (vuelve a 0) apenas aparece un día de lunes a sábado sin ningún Intento.
+- **Término medio para el día de hoy**: si hoy es un día de lunes a sábado y todavía no se guardó
+  ningún Intento hoy, el número no baja a 0 todavía (no se sabe si el día va a terminar sin
+  actividad o no) — se sigue mostrando la racha tal como venía hasta ayer. Recién al día
+  siguiente, si ese día terminó sin ningún Intento, la racha ya se corta sola. Mientras tanto, el
+  círculo de hoy avisa que está "en riesgo" (ver más abajo).
+
+Los 7 círculos (lunes a domingo) muestran la semana actual. Esta semana en pantalla es solo
+informativa: no participa del cálculo de la racha, que siempre mira hacia atrás desde hoy sin
+importar en qué día de la semana se para a contar. Cada círculo puede estar en uno de estos
+estados:
+
+- **Activo**: ese día tuvo algún Intento.
+- **Descanso**: fue domingo sin Intento (el día libre que no corta nada).
+- **En riesgo**: es hoy, todavía no tiene ningún Intento guardado, y no es domingo — si el día
+  termina así, mañana la racha se corta.
+- Ninguno de los anteriores: todavía no llegó ese día de la semana, o quedó en el pasado sin
+  Intento (de lunes a sábado) sin ser hoy.
 
 ## Estados del cronómetro (máquina de estados simple)
 

@@ -7,32 +7,161 @@
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
-  <main>
-    <h1>Cronómetro por Voz</h1>
+  <main class="app">
+    <h1 class="sr-only">Cronómetro por Voz</h1>
 
-    <!-- Ejercicio a cronometrar: se elige de la lista (FR-001). Las opciones -->
-    <!-- se completan desde cronometro.js con los ejercicios fijos + los que -->
-    <!-- el usuario fue agregando. -->
-    <label for="ejercicio">Ejercicio:</label>
-    <select id="ejercicio"></select>
+    <!-- Racha semanal: calculada en cronometro.js a partir de los intentos ya -->
+    <!-- guardados (datos.js). Los valores acá adentro son solo el estado -->
+    <!-- inicial antes de que corra el JS; se pisan apenas carga la página. -->
+    <section class="racha" aria-label="Racha de entrenamiento">
+      <div class="racha-principal">
+        <span class="racha-icono" aria-hidden="true">🔥</span>
+        <div class="racha-texto">
+          <span id="racha-numero" class="racha-numero">0</span><span id="racha-unidad" class="racha-unidad"> días</span>
+          <div class="racha-etiqueta">RACHA ACTIVA</div>
+        </div>
+      </div>
+      <div id="racha-dias" class="racha-dias">
+        <span class="dia">L</span>
+        <span class="dia">M</span>
+        <span class="dia">X</span>
+        <span class="dia">J</span>
+        <span class="dia">V</span>
+        <span class="dia">S</span>
+        <span class="dia">D</span>
+      </div>
+    </section>
 
-    <!-- Solo se muestra cuando se elige "+ Agregar nuevo ejercicio" -->
-    <input type="text" id="ejercicio-nuevo" placeholder="Nombre del nuevo ejercicio" style="display: none;">
+    <!-- Solo se muestra los domingos (día libre que no corta la racha). -->
+    <p id="mensaje-domingo" class="mensaje-domingo" hidden>🙌 Domingo, día libre. Te veo mañana.</p>
+
+    <!-- Selector de ejercicio, estilo carrusel. El <select> real sigue -->
+    <!-- existiendo y funcionando igual que antes (FR-001, FR-012); acá solo -->
+    <!-- se lo muestra oculto para lectores de pantalla y se refleja su valor -->
+    <!-- en las tarjetas de arriba mediante cronometro.js. -->
+    <div class="carrusel-ejercicio">
+      <button type="button" id="boton-anterior" class="flecha-carrusel" aria-label="Ejercicio anterior">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="carrusel-info">
+        <span id="ejercicio-nombre" class="ejercicio-nombre">—</span>
+        <span id="ejercicio-categoria" class="ejercicio-categoria">EJERCICIO</span>
+      </div>
+
+      <button type="button" id="boton-siguiente" class="flecha-carrusel" aria-label="Ejercicio siguiente">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <label for="ejercicio" class="sr-only">Ejercicio</label>
+    <select id="ejercicio" class="sr-only"></select>
+
+    <!-- Solo se muestra cuando se elige "+ Agregar nuevo ejercicio": nombre del -->
+    <!-- ejercicio y su categoría (una ya conocida, o el campo de texto para -->
+    <!-- escribir una categoría distinta si ninguna aplica). -->
+    <div id="ejercicio-nuevo-wrap" class="ejercicio-nuevo-wrap" style="display: none;">
+      <input type="text" id="ejercicio-nuevo" class="campo-nuevo" placeholder="Nombre del nuevo ejercicio">
+
+      <label for="categoria-nueva" class="sr-only">Categoría del nuevo ejercicio</label>
+      <select id="categoria-nueva" class="campo-nuevo"></select>
+
+      <input type="text" id="categoria-nueva-texto" class="campo-nuevo" placeholder="Nombre de la nueva categoría" style="display: none;">
+    </div>
 
     <!-- Récord anterior del ejercicio elegido (User Story 2) -->
-    <p id="record"></p>
+    <p id="record" class="record"></p>
 
-    <!-- Tiempo del cronómetro, bien grande para leerlo de un vistazo -->
-    <p id="cronometro">00:00</p>
+    <!-- Recordatorio de los comandos de voz (User Story 1): texto fijo, no -->
+    <!-- depende de si el reconocimiento de voz está disponible o no. -->
+    <p class="pista-voz">
+      <span aria-hidden="true">🎙️</span> Sin manos: decí “vamos” para arrancar, “listo” para parar.
+    </p>
 
-    <!-- Botones de respaldo por si la voz falla o no está disponible (User Story 3) -->
-    <div class="botones">
-      <button type="button" id="boton-iniciar">Iniciar</button>
-      <button type="button" id="boton-parar">Parar</button>
+    <!-- Cronómetro circular -->
+    <div class="circulo-cronometro">
+      <span id="cronometro" class="cronometro">00:00</span>
+      <span id="estado-texto" class="estado-texto">LISTO</span>
     </div>
 
     <!-- Avisos para el usuario, por ejemplo "elegí un ejercicio primero" -->
-    <p id="aviso"></p>
+    <p id="aviso" class="aviso"></p>
+
+    <!-- Controles: reset reemplaza a "Parar", play/pausa reemplaza a "Iniciar" -->
+    <!-- (misma lógica de siempre, solo con otro aspecto). User Story 3. -->
+    <div class="controles">
+      <button type="button" id="boton-reset" class="boton-control boton-reset" aria-label="Reiniciar" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v5h5M20 20v-5h-5M4.5 15a8 8 0 1 0 1-9.5L4 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" id="boton-play" class="boton-control boton-play" aria-label="Iniciar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l12 7-12 7z" fill="currentColor"/></svg>
+      </button>
+    </div>
+
+    <!-- Skills desbloqueadas: DATOS DE EJEMPLO fijos por ahora. La lógica real -->
+    <!-- para saber qué skills están desbloqueadas se define en otro paso. -->
+    <section class="skills" aria-label="Skills desbloqueadas (datos de ejemplo)">
+      <div class="skills-header">
+        <span>SKILLS DESBLOQUEADAS</span>
+        <span class="skills-contador">3/6</span>
+      </div>
+      <ul class="skills-lista">
+        <li class="skill desbloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>Plancha 60s</strong>
+            <small>Mantén el core 1 minuto</small>
+          </div>
+        </li>
+        <li class="skill desbloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>Pull-up estricta</strong>
+            <small>Dominada sin impulso</small>
+          </div>
+        </li>
+        <li class="skill desbloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>Dip completo</strong>
+            <small>Fondos en paralelas</small>
+          </div>
+        </li>
+        <li class="skill bloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>L-Sit 20s</strong>
+            <small>Piernas en L suspendido</small>
+          </div>
+        </li>
+        <li class="skill bloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>Handstand libre</strong>
+            <small>Pino sin pared 10s</small>
+          </div>
+        </li>
+        <li class="skill bloqueada">
+          <span class="skill-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </span>
+          <div class="skill-info">
+            <strong>Muscle-up</strong>
+            <small>Dominada a fondo</small>
+          </div>
+        </li>
+      </ul>
+    </section>
   </main>
 
   <!-- Orden importante: datos.js primero (no depende de nada),

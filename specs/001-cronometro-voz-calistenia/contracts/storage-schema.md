@@ -35,14 +35,27 @@ Un texto JSON que representa una lista de intentos:
 
 ## Forma del valor guardado en `calistenia_ejercicios_personalizados`
 
-Un texto JSON que representa una lista de nombres, en el orden en que se agregaron:
+Un texto JSON que representa una lista de objetos `{ nombre, categoria }`, en el orden en que se
+agregaron:
 
 ```json
-["Muscle Up", "Bandera"]
+[
+  { "nombre": "Muscle Up", "categoria": "Tirón" },
+  { "nombre": "Bandera", "categoria": "Equilibrio" }
+]
 ```
 
+- `nombre`: texto, tal como lo escribió el usuario (recortado, sin espacios extra).
+- `categoria`: texto; una de las categorías ya conocidas (Empuje, Tirón, Equilibrio, Core) o una
+  distinta escrita a mano. Si no se guarda ninguna (o queda vacía), se usa el texto fijo
+  "Sin categoría" en su lugar; nunca se guarda vacía.
+
 Esta lista NO incluye los ejercicios fijos (Vertical, Front Lever, L-Sit, Planche): esos siempre
-están precargados en la app y no se guardan acá.
+están precargados en la app (con su categoría) y no se guardan acá.
+
+**Compatibilidad con el formato viejo**: antes de que existiera la categoría, esta lista guardaba
+solo nombres (`["Muscle Up", "Bandera"]`). Los datos guardados en ese formato siguen
+leyéndose sin problema: se les asigna la categoría "Sin categoría" al leerlos, en vez de perderlos.
 
 ## Reglas de lectura/escritura
 

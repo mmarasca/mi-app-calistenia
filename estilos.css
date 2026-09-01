@@ -1,79 +1,472 @@
 /* estilos.css
-   Estilos simples y con buen contraste, pensados para entrenar: el cronómetro
-   se tiene que poder leer de un vistazo rápido, sin acercarse a la pantalla. */
+   Estilos pensados para entrenar: el cronómetro se tiene que poder leer de
+   un vistazo rápido, sin acercarse a la pantalla. Look oscuro tipo app móvil,
+   con tarjetas redondeadas sobre fondo casi negro. */
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: #111111;
-  color: #ffffff;
-  text-align: center;
-  padding: 2rem;
+* {
+  box-sizing: border-box;
 }
 
-h1 {
-  font-size: 1.5rem;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
+  background-color: #0a0a0a;
+  color: #ffffff;
+  margin: 0;
+  padding: 1.5rem 1rem 3rem;
+  overflow-x: hidden;
+}
+
+.app {
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Oculto visualmente pero disponible para lectores de pantalla: el <h1>, el
+   <label> del ejercicio y el <select> real siguen existiendo y funcionando
+   igual que antes (FR-001, FR-012), solo que la parte visual la muestran las
+   tarjetas de arriba. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Racha semanal ---------- */
+
+/* Esta fila junta un texto y 7 círculos que no pueden achicarse solos: en
+   pantallas angostas (ver media query al final del archivo) usa versiones
+   más chicas de todo para no terminar empujando el ancho de la página. */
+.racha {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
-label {
-  font-size: 1.2rem;
+.racha-principal {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #1a1a1a;
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem 0.5rem 0.4rem;
+  min-width: 0;
 }
 
-#ejercicio,
-#ejercicio-nuevo {
-  font-size: 1.2rem;
-  padding: 0.5rem;
-  margin: 0.5rem;
-  border-radius: 8px;
-  border: none;
-}
-
-/* Cuando el cronómetro está corriendo, se deshabilita el menú de ejercicio
-   y el campo para agregar uno nuevo (FR-012) */
-#ejercicio:disabled,
-#ejercicio-nuevo:disabled {
-  opacity: 0.6;
-}
-
-#record {
+.racha-icono {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2a2a2a;
+  border-radius: 50%;
   font-size: 1.3rem;
-  color: #ffd166;
-  margin: 1rem 0;
-  min-height: 1.6rem;
 }
 
-#cronometro {
-  font-size: 5rem;
-  font-weight: bold;
-  margin: 1rem 0;
-  color: #06d6a0;
+.racha-texto {
+  text-align: left;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
-.botones {
-  margin: 1rem 0;
+.racha-numero {
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
-.botones button {
-  font-size: 1.3rem;
-  padding: 0.7rem 1.5rem;
-  margin: 0 0.5rem;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+.racha-unidad {
+  font-size: 1rem;
+  color: #b3b3b3;
 }
 
-#boton-iniciar {
-  background-color: #06d6a0;
+.racha-etiqueta {
+  font-size: 0.65rem;
+  color: #8a8a8a;
+  letter-spacing: 0.06em;
+}
+
+.racha-dias {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.dia {
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background-color: #1a1a1a;
+  color: #7a7a7a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dia.activo {
+  background-color: #f2f2f2;
   color: #111111;
 }
 
-#boton-parar {
-  background-color: #ef476f;
+/* Domingo sin actividad: no cuenta como "fallado" (regla 2, día libre), así
+   que se distingue con un anillo punteado en vez del gris liso de un día
+   todavía no llegado o directamente sin entrenar. */
+.dia.descanso {
+  background-color: transparent;
+  border: 1.5px dashed #6a6a6a;
+  color: #8a8a8a;
+}
+
+/* Hoy, todavía sin ningún intento guardado (y no es domingo): la racha
+   sigue mostrando el número tal como venía hasta ayer, pero este círculo
+   avisa que está en riesgo si el día termina así. */
+.dia.riesgo {
+  background-color: #ffb020;
+  color: #111111;
+}
+
+/* Día de hoy: un aro fino para ubicarlo en la fila, se combine o no con
+   .activo/.descanso. */
+.dia.hoy {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.mensaje-domingo {
+  width: 100%;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #ffd166;
+  margin: -0.9rem 0 0.6rem;
+}
+
+/* ---------- Selector de ejercicio (carrusel) ---------- */
+
+.carrusel-ejercicio {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #1a1a1a;
+  border-radius: 999px;
+  padding: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.flecha-carrusel {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: none;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.flecha-carrusel svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.flecha-carrusel:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.carrusel-info {
+  flex: 1 1 auto;
+  min-width: 0; /* para que el nombre largo se corte con "…" en vez de desbordar */
+  text-align: center;
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.ejercicio-nombre {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ejercicio-categoria {
+  display: block;
+  font-size: 0.7rem;
+  color: #8a8a8a;
+  letter-spacing: 0.06em;
+}
+
+.ejercicio-nuevo-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+/* Campo de texto o selector: mismo aspecto de "pill" oscura para todos los
+   campos del formulario de "+ Agregar nuevo ejercicio" (nombre, categoría ya
+   conocida, y el texto para una categoría nueva). */
+.campo-nuevo {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #2a2a2a;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  text-align: center;
+}
+
+.campo-nuevo:disabled {
+  opacity: 0.6;
+}
+
+.record {
+  font-size: 1rem;
+  color: #ffd166;
+  margin: 0 0 1rem;
+  min-height: 1.3rem;
+}
+
+/* Recordatorio de los comandos de voz: discreto a propósito, para no competir
+   con el número del cronómetro que viene justo debajo. */
+.pista-voz {
+  font-size: 0.8rem;
+  color: #7a7a7a;
+  line-height: 1.4;
+  margin: 0 0 0.5rem;
+  max-width: 26rem;
+}
+
+/* ---------- Cronómetro circular ---------- */
+
+.circulo-cronometro {
+  width: min(320px, 78vw);
+  height: min(320px, 78vw);
+  border-radius: 50%;
+  border: 6px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.cronometro {
+  font-size: 3.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.estado-texto {
+  font-size: 0.85rem;
+  color: #8a8a8a;
+  letter-spacing: 0.08em;
+}
+
+.aviso {
+  font-size: 1rem;
+  color: #ef476f;
+  min-height: 1.4rem;
+  text-align: center;
+}
+
+/* ---------- Controles: reset + play/pausa ---------- */
+
+.controles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin: 0.5rem 0 2rem;
+}
+
+.boton-control {
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.boton-control:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.boton-reset {
+  width: 3.6rem;
+  height: 3.6rem;
+  background-color: #2a2a2a;
   color: #ffffff;
 }
 
-#aviso {
-  font-size: 1.1rem;
-  color: #ef476f;
-  min-height: 1.4rem;
+.boton-reset svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.boton-play {
+  width: 5.2rem;
+  height: 5.2rem;
+  background-color: #f2f2f2;
+  color: #111111;
+}
+
+.boton-play svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Cuando el cronómetro está corriendo, el ícono cambia a "pausa/stop" y se
+   corre un poco a la derecha por ser un triángulo asimétrico; el rectángulo
+   de pausa queda centrado sin ajuste extra. */
+.boton-play.en-curso svg {
+  margin: 0;
+}
+
+/* ---------- Skills desbloqueadas ---------- */
+
+.skills {
+  width: 100%;
+}
+
+.skills-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #b3b3b3;
+  margin-bottom: 0.75rem;
+}
+
+.skills-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.skill {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+  text-align: left;
+}
+
+.skill-icono {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skill-icono svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.skill.desbloqueada .skill-icono {
+  background-color: #f2f2f2;
+  color: #111111;
+}
+
+.skill.bloqueada .skill-icono {
+  background-color: #2a2a2a;
+  color: #6a6a6a;
+}
+
+.skill-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.skill.desbloqueada .skill-info strong {
+  color: #ffffff;
+}
+
+.skill.bloqueada .skill-info strong {
+  color: #b3b3b3;
+}
+
+.skill-info small {
+  color: #7a7a7a;
+  font-size: 0.8rem;
+}
+
+/* ---------- Pantallas angostas (celulares chicos, ~320-400px) ---------- */
+/* La fila de racha es la que más ancho mínimo necesita (texto + 7 círculos
+   que no pueden achicarse solos), así que en pantallas angostas usa
+   versiones más chicas de todo para no desbordar el ancho de la página. */
+@media (max-width: 400px) {
+  .racha {
+    gap: 0.4rem;
+  }
+
+  .racha-principal {
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem 0.35rem 0.3rem;
+  }
+
+  .racha-icono {
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 1rem;
+  }
+
+  .racha-numero {
+    font-size: 1rem;
+  }
+
+  .racha-unidad {
+    font-size: 0.8rem;
+  }
+
+  .racha-etiqueta {
+    font-size: 0.55rem;
+  }
+
+  .racha-dias {
+    gap: 0.15rem;
+  }
+
+  .dia {
+    width: 1.3rem;
+    height: 1.3rem;
+    font-size: 0.6rem;
+  }
 }

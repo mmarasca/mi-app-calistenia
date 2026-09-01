@@ -10,6 +10,9 @@ const ESTADO_CORRIENDO = "Corriendo";
 // Valor especial de la opción "+ Agregar nuevo ejercicio" en el menú.
 const VALOR_NUEVO_EJERCICIO = "__nuevo__";
 
+// Valor especial de la opción "+ Otra categoría" en el selector de categoría.
+const VALOR_OTRA_CATEGORIA = "__otra__";
+
 let estado = ESTADO_DETENIDO;
 let momentoInicio = null; // Date.now() de cuando arrancó el intento actual
 let idIntervalo = null; // referencia al setInterval que actualiza la pantalla
@@ -17,12 +20,29 @@ let idIntervalo = null; // referencia al setInterval que actualiza la pantalla
 // Referencias a los elementos de la página. Se completan cuando el HTML
 // termina de cargar (ver el DOMContentLoaded al final del archivo).
 let elementoEjercicioSelect;
+let elementoEjercicioNuevoWrap;
 let elementoEjercicioNuevo;
+let elementoCategoriaNueva;
+let elementoCategoriaNuevaTexto;
 let elementoCronometro;
 let elementoAviso;
 let elementoRecord;
-let elementoBotonIniciar;
-let elementoBotonParar;
+let elementoEstadoTexto;
+let elementoBotonAnterior;
+let elementoBotonSiguiente;
+let elementoEjercicioNombre;
+let elementoEjercicioCategoria;
+let elementoBotonReset;
+let elementoBotonPlay;
+let elementoRachaNumero;
+let elementoRachaUnidad;
+let elementoRachaDias;
+let elementoMensajeDomingo;
+
+// Íconos SVG del botón central: uno para "Iniciar" (triángulo) y otro para
+// "Parar" (cuadrado), se intercambian según el estado del cronómetro.
+const ICONO_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l12 7-12 7z" fill="currentColor"/></svg>';
+const ICONO_STOP = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
 
 // Convierte milisegundos a un texto "MM:SS" para mostrar en pantalla.
 function formatearTiempo(ms) {
@@ -61,6 +81,34 @@ function poblarSelectEjercicios() {
   elementoEjercicioSelect.appendChild(opcionAgregar);
 }
 
+// Llena el selector de categoría con las categorías ya conocidas (datos.js)
+// y deja al final la opción para escribir una categoría distinta.
+function poblarSelectCategorias() {
+  elementoCategoriaNueva.innerHTML = "";
+
+  CATEGORIAS_FIJAS.forEach((categoria) => {
+    const opcion = document.createElement("option");
+    opcion.value = categoria;
+    opcion.textContent = categoria;
+    elementoCategoriaNueva.appendChild(opcion);
+  });
+
+  const opcionOtra = document.createElement("option");
+  opcionOtra.value = VALOR_OTRA_CATEGORIA;
+  opcionOtra.textContent = "+ Otra categoría";
+  elementoCategoriaNueva.appendChild(opcionOtra);
+}
+
+// Devuelve la categoría elegida en este momento para el ejercicio nuevo: si
+// está seleccionada la opción "+ Otra categoría", toma lo escrito en su
+// campo de texto; si no, toma directamente el valor del selector.
+function obtenerCategoriaElegida() {
+  if (elementoCategoriaNueva.value === VALOR_OTRA_CATEGORIA) {
+    return elementoCategoriaNuevaTexto.value.trim();
+  }
+  return elementoCategoriaNueva.value;
+}
+
 // Agrega una opción nueva al menú (si todavía no está) y la deja seleccionada,
 // para que el ejercicio recién escrito quede elegido como cualquier otro.
 function agregarOpcionAlSelect(nombre) {
@@ -79,6 +127,86 @@ function agregarOpcionAlSelect(nombre) {
   }
 
   elementoEjercicioSelect.value = nombre;
+}
+
+// Refleja el ejercicio elegido en las tarjetas del carrusel (nombre grande +
+// categoría chica). Puramente visual: el <select> real sigue siendo la
+// fuente de verdad de qué ejercicio está elegido.
+function actualizarCarruselDisplay() {
+  if (elementoEjercicioSelect.value === VALOR_NUEVO_EJERCICIO) {
+    elementoEjercicioNombre.textContent = "Nuevo ejercicio";
+    elementoEjercicioCategoria.textContent = "";
+    return;
+  }
+
+  const ejercicio = elementoEjercicioSelect.value;
+  elementoEjercicioNombre.textContent = ejercicio || "—";
+  elementoEjercicioCategoria.textContent = ejercicio
+    ? obtenerCategoriaEjercicio(ejercicio).toUpperCase() // función de datos.js
+    : "";
+}
+
+// Mueve la selección del carrusel una posición hacia adelante o atrás
+// (delta = 1 o -1), dando la vuelta al llegar a una punta. Dispara el mismo
+// evento "change" que dispararía el usuario eligiendo del <select>, para que
+// se actualice el récord, la categoría mostrada, etc.
+function moverSelector(delta) {
+  const opciones = elementoEjercicioSelect.options;
+  if (opciones.length === 0) {
+    return;
+  }
+
+  let indice = elementoEjercicioSelect.selectedIndex + delta;
+  if (indice < 0) {
+    indice = opciones.length - 1;
+  } else if (indice >= opciones.length) {
+    indice = 0;
+  }
+
+  elementoEjercicioSelect.selectedIndex = indice;
+  elementoEjercicioSelect.dispatchEvent(new Event("change"));
+}
+
+// Arranca o detiene el cronómetro con un solo botón, según cómo esté en ese
+// momento: mismo comportamiento que antes tenían los botones separados
+// "Iniciar" y "Parar".
+function alternarPlay() {
+  if (estado === ESTADO_DETENIDO) {
+    iniciar();
+  } else {
+    parar();
+  }
+}
+
+// Refleja en pantalla la racha real (datos.js hace las cuentas a partir de
+// los intentos guardados): el número + "día(s)" arriba, y los 7 círculos
+// L M X J V S D de la semana actual. Se llama al cargar la página y de
+// nuevo cada vez que se guarda un intento nuevo (parar()), para que quede
+// al día sin necesidad de recargar.
+function actualizarRachaEnPantalla() {
+  const ahora = new Date();
+
+  const racha = calcularRachaAMostrar(ahora); // función de datos.js
+  elementoRachaNumero.textContent = racha;
+  elementoRachaUnidad.textContent = racha === 1 ? " día" : " días";
+
+  const dias = obtenerDiasDeLaSemana(ahora); // función de datos.js
+  Array.from(elementoRachaDias.children).forEach((circulo, indice) => {
+    const dia = dias[indice];
+    circulo.classList.remove("activo", "descanso", "riesgo", "hoy");
+    if (dia.activo) {
+      circulo.classList.add("activo");
+    } else if (dia.descanso) {
+      circulo.classList.add("descanso");
+    } else if (dia.enRiesgo) {
+      circulo.classList.add("riesgo");
+    }
+    if (dia.esHoy) {
+      circulo.classList.add("hoy");
+    }
+  });
+
+  elementoMensajeDomingo.hidden = ahora.getDay() !== 0; // 0 = domingo
 }
 
 function mostrarAviso(mensaje) {
@@ -124,9 +252,10 @@ function iniciar() {
   // aparezca en el menú la próxima vez, y queda seleccionado como cualquier
   // otro ejercicio ya guardado.
   if (elementoEjercicioSelect.value === VALOR_NUEVO_EJERCICIO) {
-    guardarEjercicioPersonalizado(ejercicio); // función de datos.js
+    guardarEjercicioPersonalizado(ejercicio, obtenerCategoriaElegida()); // función de datos.js
     agregarOpcionAlSelect(ejercicio);
-    elementoEjercicioNuevo.style.display = "none";
+    elementoEjercicioNuevoWrap.style.display = "none";
+    actualizarCarruselDisplay(); // mostrar el nombre y la categoría recién guardados
   }
 
   limpiarAviso();
@@ -134,6 +263,15 @@ function iniciar() {
   momentoInicio = Date.now();
   elementoEjercicioSelect.disabled = true; // FR-012: no se puede cambiar el ejercicio corriendo
   elementoEjercicioNuevo.disabled = true;
+  elementoCategoriaNueva.disabled = true;
+  elementoCategoriaNuevaTexto.disabled = true;
+  elementoBotonAnterior.disabled = true;
+  elementoBotonSiguiente.disabled = true;
+  elementoBotonReset.disabled = false;
+  elementoBotonPlay.innerHTML = ICONO_STOP;
+  elementoBotonPlay.setAttribute("aria-label", "Parar");
+  elementoBotonPlay.classList.add("en-curso");
+  elementoEstadoTexto.textContent = "EN CURSO";
 
   idIntervalo = setInterval(actualizarCronometroEnPantalla, 200);
 }
@@ -156,9 +294,19 @@ function parar() {
   momentoInicio = null;
   elementoEjercicioSelect.disabled = false;
   elementoEjercicioNuevo.disabled = false;
+  elementoCategoriaNueva.disabled = false;
+  elementoCategoriaNuevaTexto.disabled = false;
+  elementoBotonAnterior.disabled = false;
+  elementoBotonSiguiente.disabled = false;
+  elementoBotonReset.disabled = true;
+  elementoBotonPlay.innerHTML = ICONO_PLAY;
+  elementoBotonPlay.setAttribute("aria-label", "Iniciar");
+  elementoBotonPlay.classList.remove("en-curso");
+  elementoEstadoTexto.textContent = "LISTO";
   elementoCronometro.textContent = formatearTiempo(0);
 
   actualizarRecordEnPantalla(); // por si este intento recién guardado es la nueva mejor marca
+  actualizarRachaEnPantalla(); // por si este intento es el primero de hoy (o de un domingo)
 }
 
 // Se llama cada 200ms mientras el cronómetro está corriendo, para refrescar
@@ -173,34 +321,71 @@ function actualizarCronometroEnPantalla() {
 // (User Story 3) a las mismas funciones iniciar()/parar() que usa la voz.
 window.addEventListener("DOMContentLoaded", () => {
   elementoEjercicioSelect = document.getElementById("ejercicio");
+  elementoEjercicioNuevoWrap = document.getElementById("ejercicio-nuevo-wrap");
   elementoEjercicioNuevo = document.getElementById("ejercicio-nuevo");
+  elementoCategoriaNueva = document.getElementById("categoria-nueva");
+  elementoCategoriaNuevaTexto = document.getElementById("categoria-nueva-texto");
   elementoCronometro = document.getElementById("cronometro");
   elementoAviso = document.getElementById("aviso");
   elementoRecord = document.getElementById("record");
-  elementoBotonIniciar = document.getElementById("boton-iniciar");
-  elementoBotonParar = document.getElementById("boton-parar");
+  elementoEstadoTexto = document.getElementById("estado-texto");
+  elementoBotonAnterior = document.getElementById("boton-anterior");
+  elementoBotonSiguiente = document.getElementById("boton-siguiente");
+  elementoEjercicioNombre = document.getElementById("ejercicio-nombre");
+  elementoEjercicioCategoria = document.getElementById("ejercicio-categoria");
+  elementoBotonReset = document.getElementById("boton-reset");
+  elementoBotonPlay = document.getElementById("boton-play");
+  elementoRachaNumero = document.getElementById("racha-numero");
+  elementoRachaUnidad = document.getElementById("racha-unidad");
+  elementoRachaDias = document.getElementById("racha-dias");
+  elementoMensajeDomingo = document.getElementById("mensaje-domingo");
 
   elementoCronometro.textContent = formatearTiempo(0);
   poblarSelectEjercicios();
+  poblarSelectCategorias();
   actualizarRecordEnPantalla(); // mostrar el récord del ejercicio ya seleccionado por defecto
+  actualizarCarruselDisplay(); // mostrar nombre + categoría del ejercicio ya seleccionado
+  actualizarRachaEnPantalla(); // mostrar la racha real (antes era un dato de ejemplo fijo)
 
-  // Al elegir "+ Agregar nuevo ejercicio" aparece el campo de texto; al
-  // elegir cualquier otro ejercicio, se oculta.
+  // Al elegir "+ Agregar nuevo ejercicio" aparece el formulario (nombre +
+  // categoría); al elegir cualquier otro ejercicio, se oculta. Esto pasa
+  // tanto si se elige desde el <select> como si se llega ahí con las
+  // flechas del carrusel.
   elementoEjercicioSelect.addEventListener("change", () => {
     const seEligioAgregarNuevo = elementoEjercicioSelect.value === VALOR_NUEVO_EJERCICIO;
-    elementoEjercicioNuevo.style.display = seEligioAgregarNuevo ? "inline-block" : "none";
+    elementoEjercicioNuevoWrap.style.display = seEligioAgregarNuevo ? "flex" : "none";
     if (seEligioAgregarNuevo) {
       elementoEjercicioNuevo.value = "";
+      elementoCategoriaNueva.value = CATEGORIAS_FIJAS[0]; // valor de datos.js
+      elementoCategoriaNuevaTexto.style.display = "none";
+      elementoCategoriaNuevaTexto.value = "";
       elementoEjercicioNuevo.focus();
     }
     actualizarRecordEnPantalla();
+    actualizarCarruselDisplay();
   });
 
   // Cada vez que se escribe o cambia el ejercicio, se actualiza el récord mostrado.
   elementoEjercicioNuevo.addEventListener("input", actualizarRecordEnPantalla);
 
-  // Los botones llaman a las mismas funciones que los comandos de voz (voz.js),
-  // así que se comportan siempre igual sin importar cómo se los dispare.
-  elementoBotonIniciar.addEventListener("click", iniciar);
-  elementoBotonParar.addEventListener("click", parar);
+  // Al elegir "+ Otra categoría" aparece el campo para escribirla; al elegir
+  // cualquiera de las categorías ya conocidas, se oculta.
+  elementoCategoriaNueva.addEventListener("change", () => {
+    const seEligioOtra = elementoCategoriaNueva.value === VALOR_OTRA_CATEGORIA;
+    elementoCategoriaNuevaTexto.style.display = seEligioOtra ? "block" : "none";
+    if (seEligioOtra) {
+      elementoCategoriaNuevaTexto.value = "";
+      elementoCategoriaNuevaTexto.focus();
+    }
+  });
+
+  // Flechas del carrusel: recorren las mismas opciones que el <select>.
+  elementoBotonAnterior.addEventListener("click", () => moverSelector(-1));
+  elementoBotonSiguiente.addEventListener("click", () => moverSelector(1));
+
+  // Un solo botón central hace de "Iniciar"/"Parar" según el estado; el botón
+  // de reset queda deshabilitado salvo mientras el cronómetro está corriendo
+  // (mismo comportamiento que antes tenía "Parar", que no hacía nada detenido).
+  elementoBotonPlay.addEventListener("click", alternarPlay);
+  elementoBotonReset.addEventListener("click", parar);
 });
