@@ -36,7 +36,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let escuchando = false;
 
   const reconocimiento = new ReconocimientoDeVoz();
-  reconocimiento.lang = "es-ES";
+  reconocimiento.lang = "es-AR"; // español de Argentina, para mejor puntería con el acento real
   reconocimiento.continuous = true; // seguir escuchando todo el tiempo
   reconocimiento.interimResults = false; // solo interesan frases ya terminadas
 

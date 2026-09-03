@@ -97,6 +97,30 @@ function reproducirPitido() {
   }
 }
 
+// El cronómetro se puede arrancar por voz sin ningún toque en la pantalla,
+// pero los navegadores no dejan crear/reanudar el audio hasta que hubo
+// alguna interacción real del usuario con la página (si no, el primer
+// pitido podría no sonar nunca). Para adelantarse a eso, se prepara el
+// contexto de audio apenas se detecta el primer toque o tecla, sea cual sea
+// (no hace falta que sea justo el botón de play): si para cuando llega el
+// primer pitido ya hubo alguna interacción, suena bien aunque el resto del
+// entrenamiento sea 100% por voz.
+function desbloquearAudioAlPrimerToque() {
+  if (!contextoAudio) {
+    const ContextoDeAudio = window.AudioContext || window.webkitAudioContext;
+    if (!ContextoDeAudio) {
+      return;
+    }
+    contextoAudio = new ContextoDeAudio();
+  }
+  if (contextoAudio.state === "suspended") {
+    contextoAudio.resume().catch(() => {});
+  }
+}
+
+document.addEventListener("pointerdown", desbloquearAudioAlPrimerToque, { once: true });
+document.addEventListener("keydown", desbloquearAudioAlPrimerToque, { once: true });
+
 // Devuelve el nombre del ejercicio elegido en este momento: si está
 // seleccionada la opción "+ Agregar nuevo ejercicio", toma lo escrito en el
 // campo de texto; si no, toma directamente el valor del menú desplegable.
