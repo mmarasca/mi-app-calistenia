@@ -24,6 +24,11 @@ const EJERCICIOS_FIJOS = [
   { nombre: "Front Lever", categoria: "Tirón" },
   { nombre: "L-Sit", categoria: "Core" },
   { nombre: "Planche", categoria: "Empuje" },
+  // Agregado para que los retos de hito de Back Lever (ver más abajo) tengan
+  // un ejercicio real del que sacar el récord: sin esto, su hito nunca se
+  // podría desbloquear porque no habría forma de entrenarlo ni guardar un
+  // intento suyo.
+  { nombre: "Back Lever", categoria: "Tirón" },
 ];
 
 // Lee la lista completa de intentos guardados hasta ahora.
@@ -268,4 +273,331 @@ function obtenerDiasDeLaSemana(fechaReferencia) {
   }
 
   return dias;
+}
+
+// ---------- Progreso del ejercicio (gráfico de barras) ----------
+// Reglas exactas: ver la descripción de esta funcionalidad en el feature
+// request (gráfico por día mientras el historial tenga 7 días o menos desde
+// el primer intento, agrupado por semana una vez superado ese límite, sin
+// mezclar los dos estilos ni siquiera retroactivamente).
+
+// Cantidad de días de calendario (hora local) entre el primer intento
+// guardado de un ejercicio y la fecha de referencia (normalmente "ahora").
+// Se usa solo para decidir el modo del gráfico (día vs. semana), no para
+// filtrar qué intentos entran en cada grupo.
+function contarDiasDesdePrimerIntento(intentosDelEjercicio, fechaReferencia) {
+  const fechasEnMs = intentosDelEjercicio.map((intento) => new Date(intento.fecha).getTime());
+  const primerIntento = new Date(Math.min(...fechasEnMs));
+
+  const primerDia = new Date(
+    primerIntento.getFullYear(),
+    primerIntento.getMonth(),
+    primerIntento.getDate()
+  );
+  const hoy = new Date(
+    fechaReferencia.getFullYear(),
+    fechaReferencia.getMonth(),
+    fechaReferencia.getDate()
+  );
+
+  const MS_POR_DIA = 24 * 60 * 60 * 1000;
+  return Math.round((hoy.getTime() - primerDia.getTime()) / MS_POR_DIA);
+}
+
+// Lunes (hora local, a las 00:00) de la semana que contiene la fecha dada.
+// Misma cuenta que obtenerDiasDeLaSemana, pero para una fecha cualquiera en
+// vez de siempre "hoy".
+function obtenerLunesDeLaSemanaDe(fecha) {
+  const soloFecha = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  const diasDesdeElLunes = (soloFecha.getDay() + 6) % 7; // ver obtenerDiasDeLaSemana
+  soloFecha.setDate(soloFecha.getDate() - diasDesdeElLunes);
+  return soloFecha;
+}
+
+// Formato corto "DD/MM" para las etiquetas del gráfico, en hora local.
+function formatearFechaCorta(fecha) {
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}`;
+}
+
+// Reduce una lista de duraciones (ms) de un mismo grupo (día o semana) al
+// promedio y a la mejor marca de ese grupo.
+function calcularPromedioYMejor(duraciones) {
+  const sumaMs = duraciones.reduce((suma, ms) => suma + ms, 0);
+  return {
+    promedioMs: sumaMs / duraciones.length,
+    mejorMs: Math.max(...duraciones),
+  };
+}
+
+// Devuelve los datos para el gráfico de progreso de un ejercicio: cada grupo
+// con su etiqueta, el promedio de duración y la mejor marca de ese grupo.
+// - "modo" es "dia" mientras el historial de ese ejercicio (desde su primer
+//   intento hasta la fecha de referencia) tenga 7 días o menos; a partir del
+//   día 8 pasa a "semana" (lunes a domingo) y ya no vuelve a "dia", así que
+//   los grupos nunca mezclan ambos estilos.
+// - Solo se genera un grupo por día/semana en el que hubo al menos un
+//   intento guardado (no se rellenan huecos vacíos).
+// - Devuelve null si el ejercicio todavía no tiene ningún intento guardado.
+function obtenerProgresoEjercicio(ejercicio, fechaReferencia) {
+  const ejercicioLimpio = (ejercicio || "").trim();
+  if (!ejercicioLimpio) {
+    return null;
+  }
+
+  const intentosDelEjercicio = cargarIntentos().filter(
+    (intento) => intento.ejercicio === ejercicioLimpio
+  );
+  if (intentosDelEjercicio.length === 0) {
+    return null;
+  }
+
+  const diasDeHistorial = contarDiasDesdePrimerIntento(intentosDelEjercicio, fechaReferencia);
+  const modo = diasDeHistorial <= 7 ? "dia" : "semana";
+
+  const gruposPorClave = new Map(); // clave "AAAA-MM-DD" -> { etiqueta, duraciones }
+  intentosDelEjercicio.forEach((intento) => {
+    const fecha = new Date(intento.fecha);
+    const inicioDeGrupo = modo === "dia" ? fecha : obtenerLunesDeLaSemanaDe(fecha);
+    const clave = obtenerClaveDeDia(inicioDeGrupo);
+
+    if (!gruposPorClave.has(clave)) {
+      gruposPorClave.set(clave, { etiqueta: formatearFechaCorta(inicioDeGrupo), duraciones: [] });
+    }
+    gruposPorClave.get(clave).duraciones.push(intento.duracionMs);
+  });
+
+  const grupos = Array.from(gruposPorClave.entries())
+    .sort(([claveA], [claveB]) => (claveA < claveB ? -1 : claveA > claveB ? 1 : 0))
+    .map(([, grupo]) => ({
+      etiqueta: grupo.etiqueta,
+      ...calcularPromedioYMejor(grupo.duraciones),
+    }));
+
+  return { modo, grupos };
+}
+
+// ---------- Retos (hitos, diario, semanal, mensual) y medallero ----------
+// Reglas: ver la descripción de esta funcionalidad tal como se definió al
+// pedirla (4 hitos por récord real, diario/semanal/mensual por actividad
+// real, medallero con el historial real de logros; nada de datos de ejemplo).
+
+const CLAVE_LOGROS = "calistenia_logros";
+
+// Retos de hito: una progresión de 4 niveles crecientes por ejercicio (de
+// menor a mayor exigencia), cada uno para siempre según el récord real ya
+// guardado para ese ejercicio (no según que se haya "activado" nada aparte).
+// Los ejercicios personalizados que agregue el usuario no tienen hitos.
+const RETOS_HITO_PROGRESION = [
+  {
+    ejercicio: "Vertical",
+    niveles: [
+      { nombre: "Rookie", objetivoMs: 10000 },
+      { nombre: "Grinder", objetivoMs: 20000 },
+      { nombre: "Beast", objetivoMs: 30000 },
+      { nombre: "God", objetivoMs: 60000 },
+    ],
+  },
+  {
+    ejercicio: "L-Sit",
+    niveles: [
+      { nombre: "Rookie", objetivoMs: 5000 },
+      { nombre: "Grinder", objetivoMs: 10000 },
+      { nombre: "Beast", objetivoMs: 20000 },
+      { nombre: "God", objetivoMs: 30000 },
+    ],
+  },
+  {
+    ejercicio: "Front Lever",
+    niveles: [
+      { nombre: "Rookie", objetivoMs: 5000 },
+      { nombre: "Grinder", objetivoMs: 10000 },
+      { nombre: "Beast", objetivoMs: 15000 },
+      { nombre: "God", objetivoMs: 20000 },
+    ],
+  },
+  {
+    ejercicio: "Planche",
+    niveles: [
+      { nombre: "Rookie", objetivoMs: 5000 },
+      { nombre: "Grinder", objetivoMs: 10000 },
+      { nombre: "Beast", objetivoMs: 15000 },
+      { nombre: "God", objetivoMs: 20000 },
+    ],
+  },
+  {
+    ejercicio: "Back Lever",
+    niveles: [
+      { nombre: "Rookie", objetivoMs: 10000 },
+      { nombre: "Grinder", objetivoMs: 20000 },
+      { nombre: "Beast", objetivoMs: 30000 },
+      { nombre: "God", objetivoMs: 45000 },
+    ],
+  },
+];
+
+// A partir de qué racha (en días consecutivos) se desbloquea cada hito de
+// racha: una sola vez cada uno, aunque la racha después se corte.
+const RACHA_HITOS = [7, 21, 66];
+
+// Cuántos días distintos con actividad hacen falta para cumplir el reto
+// semanal (lunes a domingo) y el mensual (mes calendario actual).
+const OBJETIVO_RETO_SEMANAL = 4;
+const OBJETIVO_RETO_MENSUAL = 15;
+
+// Devuelve el estado actual de los retos de hito por ejercicio: cada
+// ejercicio con sus 4 niveles (Rookie/Grinder/Beast/God), cada uno con su
+// objetivo en ms y si ya está desbloqueado según el récord real guardado
+// para ese ejercicio (obtenerRecord ya definida más arriba).
+function obtenerEstadoRetosHito() {
+  return RETOS_HITO_PROGRESION.map((reto) => {
+    const record = obtenerRecord(reto.ejercicio);
+    return {
+      ejercicio: reto.ejercicio,
+      niveles: reto.niveles.map((nivel) => ({
+        nombre: nivel.nombre,
+        objetivoMs: nivel.objetivoMs,
+        desbloqueado: record !== null && record >= nivel.objetivoMs,
+      })),
+    };
+  });
+}
+
+// Devuelve el estado actual de los hitos de racha (7/21/66 días
+// consecutivos): la racha real de hoy (calcularRachaActual, ya definida más
+// arriba) y si cada umbral ya está desbloqueado.
+function obtenerEstadoRachaHitos(fechaReferencia) {
+  const rachaActual = calcularRachaActual(fechaReferencia);
+  return RACHA_HITOS.map((dias) => ({
+    dias,
+    desbloqueado: rachaActual >= dias,
+  }));
+}
+
+// Reto diario: cumplido si hay al menos un intento guardado hoy, de
+// cualquier ejercicio (mismo criterio que "día activo" de la racha).
+function obtenerEstadoRetoDiario(fechaReferencia) {
+  return obtenerDiasConActividad().has(obtenerClaveDeDia(fechaReferencia));
+}
+
+// Reto semanal: cuántos días distintos (lunes a domingo, sin contar los
+// días todavía no llegados) tuvieron al menos un intento guardado.
+function obtenerEstadoRetoSemanal(fechaReferencia) {
+  const diasActivos = obtenerDiasDeLaSemana(fechaReferencia).filter((dia) => dia.activo).length;
+  return {
+    diasActivos,
+    objetivo: OBJETIVO_RETO_SEMANAL,
+    cumplido: diasActivos >= OBJETIVO_RETO_SEMANAL,
+  };
+}
+
+// Reto mensual: cuántos días distintos del mes calendario actual tuvieron
+// al menos un intento guardado.
+function obtenerEstadoRetoMensual(fechaReferencia) {
+  const prefijoDelMes = obtenerClaveDeDia(fechaReferencia).slice(0, 7); // "AAAA-MM"
+  const diasActivos = Array.from(obtenerDiasConActividad()).filter((clave) =>
+    clave.startsWith(prefijoDelMes)
+  ).length;
+  return {
+    diasActivos,
+    objetivo: OBJETIVO_RETO_MENSUAL,
+    cumplido: diasActivos >= OBJETIVO_RETO_MENSUAL,
+  };
+}
+
+// ---- Medallero: historial real de logros (ver verificarYRegistrarLogros) ----
+
+// Lee el medallero completo guardado hasta ahora. Si todavía no hay nada
+// guardado (o el dato está corrupto), devuelve una lista vacía.
+function cargarLogros() {
+  const textoGuardado = localStorage.getItem(CLAVE_LOGROS);
+  if (!textoGuardado) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(textoGuardado);
+  } catch (error) {
+    console.error("No se pudieron leer los logros guardados, se empieza de nuevo.", error);
+    return [];
+  }
+}
+
+// Agrega un logro nuevo al medallero, salvo que ya exista uno con la misma
+// "clave" (por ejemplo, el mismo hito, o el mismo día/semana/mes ya
+// registrado antes): así cada logro real queda guardado una sola vez.
+function guardarLogroSiFalta(clave, nombre, fechaReferencia) {
+  const logros = cargarLogros();
+  if (logros.some((logro) => logro.clave === clave)) {
+    return;
+  }
+
+  logros.push({ clave, nombre, fecha: fechaReferencia.toISOString() });
+  localStorage.setItem(CLAVE_LOGROS, JSON.stringify(logros));
+}
+
+// Revisa el estado actual de todos los tipos de reto (hito por ejercicio,
+// hito de racha, diario, semanal, mensual, y el hito simbólico de "primer
+// reto") y, por cada uno que esté cumplido y todavía no tenga su logro
+// guardado, lo agrega al medallero con la fecha de hoy. Pensado para
+// llamarse cada vez que se vuelve a dibujar la sección de Retos (al cargar
+// la página y después de guardar cada intento nuevo), para que el
+// medallero quede siempre al día con la actividad real.
+function verificarYRegistrarLogros(fechaReferencia) {
+  // Hitos de progresión por ejercicio: una entrada por cada nivel
+  // desbloqueado (no uno solo por ejercicio), para que Rookie/Grinder/
+  // Beast/God queden cada uno como su propio logro en el medallero.
+  obtenerEstadoRetosHito().forEach((reto) => {
+    reto.niveles.forEach((nivel) => {
+      if (nivel.desbloqueado) {
+        guardarLogroSiFalta(
+          `hito-${reto.ejercicio}-${nivel.nombre}`,
+          `${reto.ejercicio} ${nivel.nombre}`,
+          fechaReferencia
+        );
+      }
+    });
+  });
+
+  // Hitos de racha (7/21/66 días): una sola vez cada uno, aunque la racha
+  // después se corte (guardarLogroSiFalta ya se encarga de no repetirlos).
+  obtenerEstadoRachaHitos(fechaReferencia).forEach((hito) => {
+    if (hito.desbloqueado) {
+      guardarLogroSiFalta(`racha-${hito.dias}`, `Racha de ${hito.dias} días`, fechaReferencia);
+    }
+  });
+
+  const diarioCumplido = obtenerEstadoRetoDiario(fechaReferencia);
+  if (diarioCumplido) {
+    const claveDelDia = obtenerClaveDeDia(fechaReferencia);
+    guardarLogroSiFalta(`diario-${claveDelDia}`, "Entrená hoy", fechaReferencia);
+  }
+
+  const semanal = obtenerEstadoRetoSemanal(fechaReferencia);
+  if (semanal.cumplido) {
+    const claveDeLaSemana = obtenerClaveDeDia(obtenerLunesDeLaSemanaDe(fechaReferencia));
+    guardarLogroSiFalta(
+      `semanal-${claveDeLaSemana}`,
+      `${OBJETIVO_RETO_SEMANAL} días esta semana`,
+      fechaReferencia
+    );
+  }
+
+  const mensual = obtenerEstadoRetoMensual(fechaReferencia);
+  if (mensual.cumplido) {
+    const claveDelMes = obtenerClaveDeDia(fechaReferencia).slice(0, 7);
+    guardarLogroSiFalta(`mensual-${claveDelMes}`, `${OBJETIVO_RETO_MENSUAL} días este mes`, fechaReferencia);
+  }
+
+  // Hito simbólico: la primera vez que se cumple CUALQUIERA de los 3 retos
+  // activos (diario, semanal o mensual), sin importar cuál haya sido.
+  if (diarioCumplido || semanal.cumplido || mensual.cumplido) {
+    guardarLogroSiFalta("primer-reto", "Primer reto completado", fechaReferencia);
+  }
+}
+
+// Devuelve el medallero completo, ordenado del logro más reciente al más viejo.
+function obtenerLogrosOrdenados() {
+  return cargarLogros().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 }

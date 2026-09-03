@@ -41,6 +41,51 @@ body {
   border: 0;
 }
 
+/* ---------- Pestañas (Cronómetro / Retos) ---------- */
+
+.pestanas {
+  width: 100%;
+  display: flex;
+  gap: 0.3rem;
+  background-color: #1a1a1a;
+  border-radius: 999px;
+  padding: 0.3rem;
+  margin-bottom: 1.5rem;
+}
+
+.pestana {
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 0.5rem;
+  background-color: transparent;
+  color: #8a8a8a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.pestana.activa {
+  background-color: #2a2a2a;
+  color: #ffffff;
+}
+
+/* Cada pantalla ocupa todo el ancho y acomoda su contenido en columna,
+   igual que hacía ".app" antes de que existieran las dos pantallas.
+   ":not([hidden])" en vez de la clase sola: si no, este "display: flex"
+   pisaría al "display: none" del atributo [hidden] (misma especificidad,
+   pero la regla de autor gana) y la pantalla oculta se seguiría viendo. */
+.pantalla {
+  width: 100%;
+}
+
+.pantalla:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ---------- Racha semanal ---------- */
 
 /* Esta fila junta un texto y 7 círculos que no pueden achicarse solos: en
@@ -348,13 +393,14 @@ body {
   margin: 0;
 }
 
-/* ---------- Skills desbloqueadas ---------- */
+/* ---------- Progreso del ejercicio (gráfico de barras hecho con divs) ---------- */
 
-.skills {
+.progreso {
   width: 100%;
+  margin-bottom: 1.5rem;
 }
 
-.skills-header {
+.progreso-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -365,26 +411,224 @@ body {
   margin-bottom: 0.75rem;
 }
 
-.skills-lista {
-  list-style: none;
+.progreso-periodo {
+  color: #7a7a7a;
+}
+
+.progreso-vacio {
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 0.9rem;
   margin: 0;
-  padding: 0;
+}
+
+/* Cada columna es un día o una semana; adentro van las dos barras (promedio
+   y mejor marca) paradas sobre la misma línea de base. Cuando hay muchas
+   columnas (semanas acumuladas) se desplaza horizontalmente en vez de
+   achicarlas hasta hacerlas ilegibles. */
+/* :not([hidden]) en vez de la clase sola: si no, el "display: flex" de acá
+   pisaría al "display: none" del atributo [hidden] (misma especificidad,
+   pero esta regla de autor gana), y la caja quedaría visible vacía cuando
+   el gráfico se oculta a favor del mensaje de "sin datos". */
+.progreso-grafico:not([hidden]) {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  /* Un poco más de padding arriba que a los costados: ahí es donde aparece
+     la etiqueta de valor (en segundos) de la barra más alta. */
+  padding: 1.5rem 0.8rem 0.7rem;
+  overflow-x: auto;
+  height: 9.5rem;
+}
+
+.progreso-columna {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 2.6rem;
+  height: 100%;
+}
+
+.progreso-barras {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+/* "position: relative" para que la etiqueta de valor (.progreso-valor) se
+   pueda ubicar pegada arriba de ESTA barra en particular (ver más abajo),
+   siguiéndola aunque cambie de altura. */
+.progreso-barra {
+  position: relative;
+  width: 0.7rem;
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+}
+
+.progreso-barra-promedio {
+  background-color: #6a6a6a;
+}
+
+.progreso-barra-mejor {
+  background-color: #ffd166;
+}
+
+/* Valor en segundos ("18s") pegado arriba de la barra: "bottom: 100%" la deja
+   siempre justo encima del borde superior de su propia barra, sin ocupar
+   espacio en el diseño (así no empuja ni cambia el alto de nada más). Cada
+   una toma el color de su barra para poder distinguirlas de un vistazo. */
+.progreso-valor {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 0.2rem;
+  font-size: 0.6rem;
+  white-space: nowrap;
+}
+
+.progreso-barra-promedio .progreso-valor {
+  color: #b3b3b3;
+}
+
+.progreso-barra-mejor .progreso-valor {
+  color: #ffd166;
+}
+
+.progreso-etiqueta {
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  color: #8a8a8a;
+  white-space: nowrap;
+}
+
+.progreso-leyenda:not([hidden]) {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: #b3b3b3;
+}
+
+.leyenda-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.leyenda-color {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.leyenda-promedio {
+  background-color: #6a6a6a;
+}
+
+.leyenda-mejor {
+  background-color: #ffd166;
+}
+
+/* ---------- Retos ---------- */
+
+.retos {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.retos-encabezado {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.retos-etiqueta {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #ffd166;
+  text-transform: uppercase;
+}
+
+.retos-titulo {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.retos-trofeo {
+  flex: 0 0 auto;
+  width: 1.3rem;
+  height: 1.3rem;
+  color: #ffd166;
+}
+
+.retos-bloque {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
 }
 
-.skill {
+.retos-bloque-titulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #b3b3b3;
+}
+
+.retos-bloque-encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.retos-nota {
+  font-size: 0.7rem;
+  color: #7a7a7a;
+}
+
+/* Reto diario: no hace nada al tocarlo (se cumple solo con la actividad
+   real, no con un click), pero queda como <button> por consistencia visual
+   con el resto de los controles. */
+.reto-diario {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+  width: 100%;
   background-color: #1a1a1a;
+  border: none;
   border-radius: 14px;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1rem;
   text-align: left;
+  cursor: default;
+  font: inherit;
+  color: inherit;
 }
 
-.skill-icono {
+.reto-diario.reto-cumplido {
+  background-color: rgba(255, 209, 102, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.3);
+}
+
+.reto-diario-icono {
   flex: 0 0 auto;
   width: 2.2rem;
   height: 2.2rem;
@@ -392,40 +636,229 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.skill-icono svg {
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
-.skill.desbloqueada .skill-icono {
-  background-color: #f2f2f2;
-  color: #111111;
-}
-
-.skill.bloqueada .skill-icono {
   background-color: #2a2a2a;
   color: #6a6a6a;
 }
 
-.skill-info {
+.reto-diario.reto-cumplido .reto-diario-icono {
+  background-color: #ffd166;
+  color: #111111;
+}
+
+.reto-diario-icono svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.reto-diario-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.reto-diario-info small {
+  color: #7a7a7a;
+  font-size: 0.8rem;
+}
+
+.reto-diario-estado {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: #7a7a7a;
+}
+
+.reto-diario.reto-cumplido .reto-diario-estado {
+  color: #ffd166;
+}
+
+.reto-progreso {
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+
+.reto-progreso-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.reto-progreso-textos {
   display: flex;
   flex-direction: column;
   line-height: 1.35;
 }
 
-.skill.desbloqueada .skill-info strong {
+.reto-progreso-titulo {
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #ffffff;
 }
 
-.skill.bloqueada .skill-info strong {
-  color: #b3b3b3;
+.reto-progreso-subtitulo {
+  font-size: 0.75rem;
+  color: #7a7a7a;
 }
 
-.skill-info small {
+.reto-progreso-contador {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: #ffd166;
+}
+
+.reto-barra {
+  height: 0.35rem;
+  width: 100%;
+  border-radius: 999px;
+  background-color: #2a2a2a;
+  overflow: hidden;
+}
+
+.reto-barra-relleno {
+  height: 100%;
+  border-radius: 999px;
+  background-color: #ffd166;
+  transition: width 0.2s ease;
+}
+
+.retos-hito-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Una fila por ejercicio: su nombre arriba, y abajo sus 4 niveles
+   (Rookie/Grinder/Beast/God) uno al lado del otro, cada uno marcado según
+   si ya está desbloqueado por el récord real de ese ejercicio. */
+.reto-hito-ejercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+}
+
+.reto-hito-ejercicio-nombre {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.reto-hito-niveles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.reto-hito-nivel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.2rem;
+  border-radius: 10px;
+  background-color: #2a2a2a;
+}
+
+.reto-hito-nivel.desbloqueado {
+  background-color: rgba(255, 209, 102, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.35);
+}
+
+.reto-hito-nivel-icono {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #6a6a6a;
+}
+
+.reto-hito-nivel.desbloqueado .reto-hito-nivel-icono {
+  color: #ffd166;
+}
+
+.reto-hito-nivel-icono svg {
+  width: 100%;
+  height: 100%;
+}
+
+.reto-hito-nivel-nombre {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #8a8a8a;
+  text-align: center;
+}
+
+.reto-hito-nivel.desbloqueado .reto-hito-nivel-nombre {
+  color: #ffffff;
+}
+
+.reto-hito-nivel-objetivo {
+  font-size: 0.6rem;
   color: #7a7a7a;
-  font-size: 0.8rem;
+}
+
+.medallero-vacio {
+  background-color: #1a1a1a;
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.medallero-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.medalla {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 5.5rem;
+  text-align: center;
+  padding: 0.6rem 0.4rem;
+  border-radius: 14px;
+  background-color: rgba(255, 209, 102, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.25);
+}
+
+.medalla-icono {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffd166;
+}
+
+.medalla-icono svg {
+  width: 100%;
+  height: 100%;
+}
+
+.medalla-nombre {
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.medalla-fecha {
+  font-size: 0.65rem;
+  color: #7a7a7a;
 }
 
 /* ---------- Pantallas angostas (celulares chicos, ~320-400px) ---------- */
@@ -468,5 +901,24 @@ body {
     width: 1.3rem;
     height: 1.3rem;
     font-size: 0.6rem;
+  }
+
+  /* Los 4 niveles por ejercicio (Rookie/Grinder/Beast/God) son lo más
+     angosto que hay en la pantalla de Retos: en celulares chicos se
+     achican el padding y las letras para que entren sin desbordar. */
+  .reto-hito-niveles {
+    gap: 0.25rem;
+  }
+
+  .reto-hito-nivel {
+    padding: 0.4rem 0.1rem;
+  }
+
+  .reto-hito-nivel-nombre {
+    font-size: 0.58rem;
+  }
+
+  .reto-hito-nivel-objetivo {
+    font-size: 0.55rem;
   }
 }

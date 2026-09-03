@@ -30,6 +30,11 @@ window.addEventListener("DOMContentLoaded", () => {
   // reintentando: se avisa una sola vez y se deja de escuchar.
   let vozUtilizable = true;
 
+  // Si en este momento el micrófono está efectivamente abierto. Sirve para
+  // no pedirle a la Web Speech API que arranque dos veces seguidas (tira
+  // error si ya está escuchando).
+  let escuchando = false;
+
   const reconocimiento = new ReconocimientoDeVoz();
   reconocimiento.lang = "es-ES";
   reconocimiento.continuous = true; // seguir escuchando todo el tiempo
@@ -47,23 +52,59 @@ window.addEventListener("DOMContentLoaded", () => {
     // Cualquier otra palabra reconocida se ignora a propósito.
   };
 
-  // El reconocimiento se corta solo cada tanto en varios navegadores;
-  // lo volvemos a arrancar para seguir escuchando durante todo el entrenamiento,
-  // salvo que ya sepamos que no se puede usar (por ejemplo, sin permiso de micrófono).
-  reconocimiento.onend = () => {
-    if (vozUtilizable) {
-      reconocimiento.start();
+  reconocimiento.onstart = () => {
+    escuchando = true;
+  };
+
+  // Intenta poner en marcha el reconocimiento si hace falta (no si ya está
+  // escuchando, ni si ya sabemos que no se puede usar). Si el navegador
+  // todavía no terminó de soltar el micrófono de la vez anterior tira
+  // error al instante; en ese caso se reintenta enseguida en vez de dejar
+  // la app sin escuchar hasta que el usuario recargue la página.
+  function intentarEscuchar() {
+    if (!vozUtilizable || escuchando) {
+      return;
     }
+    try {
+      reconocimiento.start();
+    } catch (error) {
+      setTimeout(intentarEscuchar, 300);
+    }
+  }
+
+  // El reconocimiento se corta solo cada tanto en varios navegadores, y
+  // también cuando el celular bloquea la pantalla y el sistema operativo le
+  // corta el micrófono a la app (resguardo adicional al Wake Lock de
+  // cronometro.js, que evita que la pantalla llegue a bloquearse). Se lo
+  // vuelve a arrancar para seguir escuchando durante todo el entrenamiento,
+  // salvo que ya sepamos que no se puede usar (por ejemplo, sin permiso de
+  // micrófono).
+  reconocimiento.onend = () => {
+    escuchando = false;
+    setTimeout(intentarEscuchar, 300);
   };
 
   reconocimiento.onerror = (evento) => {
     console.warn("Error de reconocimiento de voz:", evento.error);
+    escuchando = false;
 
     if (evento.error === "not-allowed" || evento.error === "service-not-allowed") {
       vozUtilizable = false;
       mostrarAviso("No se dio permiso de micrófono. Usá los botones para controlar el cronómetro.");
     }
+    // Los demás errores (por ejemplo "network" o "no-speech") los reintenta
+    // el propio onend, que el navegador dispara siempre después de un error.
   };
 
-  reconocimiento.start();
+  // Resguardo extra para cuando se bloquea la pantalla: mientras el celular
+  // está bloqueado, la pestaña puede quedar completamente pausada y ni
+  // siquiera llegar a disparar onend/onerror; recién se entera al volver a
+  // primer plano. Ahí se revisa si quedó escuchando y, si no, se reintenta.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      intentarEscuchar();
+    }
+  });
+
+  intentarEscuchar();
 });

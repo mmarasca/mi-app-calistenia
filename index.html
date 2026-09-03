@@ -10,6 +10,15 @@
   <main class="app">
     <h1 class="sr-only">Cronómetro por Voz</h1>
 
+    <!-- Pestañas para navegar entre las dos pantallas de la app, sin recargar -->
+    <!-- la página (navegacion.js). Arranca siempre en "Cronómetro". -->
+    <div class="pestanas" role="tablist" aria-label="Secciones de la app">
+      <button type="button" id="pestana-cronometro" class="pestana" role="tab" aria-selected="true" aria-controls="pantalla-cronometro">Cronómetro</button>
+      <button type="button" id="pestana-retos" class="pestana" role="tab" aria-selected="false" aria-controls="pantalla-retos">Retos</button>
+    </div>
+
+    <div id="pantalla-cronometro" class="pantalla" role="tabpanel" aria-labelledby="pestana-cronometro">
+
     <!-- Racha semanal: calculada en cronometro.js a partir de los intentos ya -->
     <!-- guardados (datos.js). Los valores acá adentro son solo el estado -->
     <!-- inicial antes de que corra el JS; se pisan apenas carga la página. -->
@@ -87,10 +96,13 @@
     <!-- Avisos para el usuario, por ejemplo "elegí un ejercicio primero" -->
     <p id="aviso" class="aviso"></p>
 
-    <!-- Controles: reset reemplaza a "Parar", play/pausa reemplaza a "Iniciar" -->
-    <!-- (misma lógica de siempre, solo con otro aspecto). User Story 3. -->
+    <!-- Controles: play/pausa reemplaza a "Iniciar" (misma lógica de siempre, -->
+    <!-- solo con otro aspecto; User Story 3). El botón de reset es aparte: -->
+    <!-- solo sirve para volver la vista a 00:00 sin guardar nada, así que -->
+    <!-- solo tiene sentido mientras el cronómetro está detenido (ver -->
+    <!-- reiniciarCronometro() en cronometro.js). -->
     <div class="controles">
-      <button type="button" id="boton-reset" class="boton-control boton-reset" aria-label="Reiniciar" disabled>
+      <button type="button" id="boton-reset" class="boton-control boton-reset" aria-label="Reiniciar">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v5h5M20 20v-5h-5M4.5 15a8 8 0 1 0 1-9.5L4 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <button type="button" id="boton-play" class="boton-control boton-play" aria-label="Iniciar">
@@ -98,77 +110,114 @@
       </button>
     </div>
 
-    <!-- Skills desbloqueadas: DATOS DE EJEMPLO fijos por ahora. La lógica real -->
-    <!-- para saber qué skills están desbloqueadas se define en otro paso. -->
-    <section class="skills" aria-label="Skills desbloqueadas (datos de ejemplo)">
-      <div class="skills-header">
-        <span>SKILLS DESBLOQUEADAS</span>
-        <span class="skills-contador">3/6</span>
+    <!-- Progreso del ejercicio seleccionado en el carrusel (y solo ese): una -->
+    <!-- barra por día mientras el historial tenga 7 días o menos, o una barra -->
+    <!-- por semana una vez superado ese límite. Todo se calcula y se dibuja -->
+    <!-- en JS (cronometro.js), sin ninguna librería de gráficos. -->
+    <section class="progreso" aria-label="Progreso del ejercicio seleccionado">
+      <div class="progreso-header">
+        <span>PROGRESO</span>
+        <span id="progreso-periodo" class="progreso-periodo"></span>
       </div>
-      <ul class="skills-lista">
-        <li class="skill desbloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>Plancha 60s</strong>
-            <small>Mantén el core 1 minuto</small>
-          </div>
-        </li>
-        <li class="skill desbloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>Pull-up estricta</strong>
-            <small>Dominada sin impulso</small>
-          </div>
-        </li>
-        <li class="skill desbloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>Dip completo</strong>
-            <small>Fondos en paralelas</small>
-          </div>
-        </li>
-        <li class="skill bloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>L-Sit 20s</strong>
-            <small>Piernas en L suspendido</small>
-          </div>
-        </li>
-        <li class="skill bloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>Handstand libre</strong>
-            <small>Pino sin pared 10s</small>
-          </div>
-        </li>
-        <li class="skill bloqueada">
-          <span class="skill-icono" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          </span>
-          <div class="skill-info">
-            <strong>Muscle-up</strong>
-            <small>Dominada a fondo</small>
-          </div>
-        </li>
-      </ul>
+      <p id="progreso-vacio" class="progreso-vacio" hidden>Todavía no hay datos para este ejercicio.</p>
+      <div id="progreso-grafico" class="progreso-grafico" hidden></div>
+      <div id="progreso-leyenda" class="progreso-leyenda" hidden>
+        <span class="leyenda-item"><span class="leyenda-color leyenda-promedio" aria-hidden="true"></span> Promedio</span>
+        <span class="leyenda-item"><span class="leyenda-color leyenda-mejor" aria-hidden="true"></span> Mejor marca</span>
+      </div>
     </section>
+
+    </div>
+
+    <!-- Retos: hitos (para siempre, según el récord real), diario/semanal/ -->
+    <!-- mensual (según la actividad real guardada) y el medallero con el -->
+    <!-- historial real de logros. Cálculo y guardado en datos.js; el armado -->
+    <!-- visual de acá adentro lo hace retos.js. -->
+    <div id="pantalla-retos" class="pantalla" role="tabpanel" aria-labelledby="pestana-retos" hidden>
+    <section class="retos" aria-label="Retos">
+      <div class="retos-encabezado">
+        <div>
+          <span class="retos-etiqueta">TU PROGRESO</span>
+          <span class="retos-titulo">Retos</span>
+        </div>
+        <svg class="retos-trofeo" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 4h8v4a4 4 0 0 1-8 0V4z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 5H5a3 3 0 0 0 3 3M16 5h3a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 12v2.3M9.3 19h5.4M10 14.3h4v1.7a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-1.7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="retos-bloque">
+        <span class="retos-bloque-titulo">RETOS ACTIVOS</span>
+
+        <!-- Cumplido o no según si ya hay algún intento guardado hoy -->
+        <!-- (obtenerEstadoRetoDiario en datos.js); no hace nada al tocarlo. -->
+        <button type="button" id="reto-diario" class="reto-diario">
+          <span class="reto-diario-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="reto-diario-info">
+            <strong>Entrená hoy</strong>
+            <small>Reto diario</small>
+          </span>
+          <span id="reto-diario-estado" class="reto-diario-estado">Pendiente</span>
+        </button>
+
+        <div class="reto-progreso">
+          <div class="reto-progreso-encabezado">
+            <span class="reto-progreso-textos">
+              <span class="reto-progreso-titulo">4 días esta semana</span>
+              <span class="reto-progreso-subtitulo">Reto semanal</span>
+            </span>
+            <span id="reto-semanal-contador" class="reto-progreso-contador">0 / 4</span>
+          </div>
+          <div class="reto-barra"><div id="reto-semanal-barra" class="reto-barra-relleno"></div></div>
+        </div>
+
+        <div class="reto-progreso">
+          <div class="reto-progreso-encabezado">
+            <span class="reto-progreso-textos">
+              <span class="reto-progreso-titulo">15 días este mes</span>
+              <span class="reto-progreso-subtitulo">Reto mensual</span>
+            </span>
+            <span id="reto-mensual-contador" class="reto-progreso-contador">0 / 15</span>
+          </div>
+          <div class="reto-barra"><div id="reto-mensual-barra" class="reto-barra-relleno"></div></div>
+        </div>
+      </div>
+
+      <div class="retos-bloque">
+        <div class="retos-bloque-encabezado">
+          <span class="retos-bloque-titulo">RETOS DE HITO</span>
+          <span class="retos-nota">para siempre</span>
+        </div>
+        <!-- Se completa en JS con los 4 hitos reales (obtenerEstadoRetosHito). -->
+        <ul id="retos-hito-lista" class="retos-hito-lista"></ul>
+      </div>
+
+      <div class="retos-bloque">
+        <div class="retos-bloque-encabezado">
+          <span class="retos-bloque-titulo">MEDALLERO</span>
+          <span id="medallero-contador" class="retos-nota">0 logros</span>
+        </div>
+        <p id="medallero-vacio" class="medallero-vacio" hidden>Todavía no ganaste ninguna medalla.</p>
+        <!-- Se completa en JS con el historial real de logros (obtenerLogrosOrdenados). -->
+        <ul id="medallero-lista" class="medallero-lista"></ul>
+      </div>
+    </section>
+    </div>
   </main>
 
-  <!-- Orden importante: datos.js primero (no depende de nada),
-       después cronometro.js (usa las funciones de datos.js),
-       y por último voz.js (usa las funciones de cronometro.js). -->
+  <!-- Orden importante: datos.js primero (no depende de nada), después
+       retos.js (usa las funciones de datos.js), después cronometro.js (usa
+       las de datos.js y llama a actualizarRetosEnPantalla de retos.js al
+       guardar un intento nuevo), y por último voz.js (usa las de
+       cronometro.js). navegacion.js no depende de ningún otro archivo (solo
+       muestra/oculta las dos pantallas), así que su posición no importa. -->
   <script src="datos.js"></script>
+  <script src="retos.js"></script>
   <script src="cronometro.js"></script>
   <script src="voz.js"></script>
+  <script src="navegacion.js"></script>
 </body>
 </html>

@@ -16,6 +16,7 @@ const VALOR_OTRA_CATEGORIA = "__otra__";
 let estado = ESTADO_DETENIDO;
 let momentoInicio = null; // Date.now() de cuando arrancó el intento actual
 let idIntervalo = null; // referencia al setInterval que actualiza la pantalla
+let ultimoMultiploDePitidoEmitido = 0; // cuántos "cada 10s" ya sonaron en este intento
 
 // Referencias a los elementos de la página. Se completan cuando el HTML
 // termina de cargar (ver el DOMContentLoaded al final del archivo).
@@ -38,6 +39,10 @@ let elementoRachaNumero;
 let elementoRachaUnidad;
 let elementoRachaDias;
 let elementoMensajeDomingo;
+let elementoProgresoPeriodo;
+let elementoProgresoVacio;
+let elementoProgresoGrafico;
+let elementoProgresoLeyenda;
 
 // Íconos SVG del botón central: uno para "Iniciar" (triángulo) y otro para
 // "Parar" (cuadrado), se intercambian según el estado del cronómetro.
@@ -51,6 +56,45 @@ function formatearTiempo(ms) {
   const segundos = segundosTotales % 60;
   const dosDigitos = (numero) => String(numero).padStart(2, "0");
   return `${dosDigitos(minutos)}:${dosDigitos(segundos)}`;
+}
+
+// ---------- Pitido cada 10 segundos (referencia auditiva) ----------
+// Generado con la Web Audio API (osciladores), sin ningún archivo de audio
+// externo. El contexto de audio se crea recién la primera vez que hace
+// falta (algunos navegadores no dejan crearlo antes de una interacción del
+// usuario en la página); si el navegador no soporta esta API, o falla por
+// cualquier motivo, no hace nada y el resto del cronómetro sigue igual.
+let contextoAudio = null;
+
+function reproducirPitido() {
+  try {
+    if (!contextoAudio) {
+      const ContextoDeAudio = window.AudioContext || window.webkitAudioContext;
+      if (!ContextoDeAudio) {
+        return;
+      }
+      contextoAudio = new ContextoDeAudio();
+    }
+    if (contextoAudio.state === "suspended") {
+      contextoAudio.resume();
+    }
+
+    // Pitido corto (150ms), un tono simple que se apaga solo: no hace falta
+    // pararlo a mano al parar/resetear el cronómetro (ver más abajo).
+    const oscilador = contextoAudio.createOscillator();
+    const ganancia = contextoAudio.createGain();
+    oscilador.type = "sine";
+    oscilador.frequency.value = 880;
+    ganancia.gain.setValueAtTime(0.15, contextoAudio.currentTime);
+    ganancia.gain.exponentialRampToValueAtTime(0.0001, contextoAudio.currentTime + 0.15);
+
+    oscilador.connect(ganancia);
+    ganancia.connect(contextoAudio.destination);
+    oscilador.start();
+    oscilador.stop(contextoAudio.currentTime + 0.15);
+  } catch (error) {
+    console.warn("No se pudo reproducir el pitido:", error);
+  }
 }
 
 // Devuelve el nombre del ejercicio elegido en este momento: si está
@@ -209,6 +253,79 @@ function actualizarRachaEnPantalla() {
   elementoMensajeDomingo.hidden = ahora.getDay() !== 0; // 0 = domingo
 }
 
+// Crea la etiqueta con el valor redondeado en segundos (ej. "18s") que se
+// pega arriba de cada barra del gráfico de progreso.
+function crearEtiquetaValorEnSegundos(ms) {
+  const etiqueta = document.createElement("span");
+  etiqueta.className = "progreso-valor";
+  etiqueta.textContent = `${Math.round(ms / 1000)}s`;
+  return etiqueta;
+}
+
+// Dibuja el gráfico de progreso (barras hechas con divs, sin librerías) del
+// ejercicio elegido en este momento en el carrusel. Se llama al cargar la
+// página, cada vez que cambia el ejercicio elegido, y después de guardar un
+// intento nuevo (por si entra en un grupo distinto al que ya se veía).
+function actualizarProgresoEnPantalla() {
+  const ejercicio = obtenerEjercicioActual();
+  const progreso = ejercicio ? obtenerProgresoEjercicio(ejercicio, new Date()) : null; // datos.js
+
+  if (!progreso) {
+    elementoProgresoPeriodo.textContent = "";
+    elementoProgresoVacio.hidden = false;
+    elementoProgresoGrafico.hidden = true;
+    elementoProgresoGrafico.innerHTML = "";
+    elementoProgresoLeyenda.hidden = true;
+    return;
+  }
+
+  elementoProgresoPeriodo.textContent = progreso.modo === "dia" ? "POR DÍA" : "POR SEMANA";
+  elementoProgresoVacio.hidden = true;
+  elementoProgresoGrafico.hidden = false;
+  elementoProgresoLeyenda.hidden = false;
+
+  // Todas las barras (promedio y mejor marca, de todos los grupos) se
+  // escalan contra la mejor marca más alta de todo el gráfico, para que las
+  // alturas sean comparables entre columnas.
+  const mejorMaximo = Math.max(...progreso.grupos.map((grupo) => grupo.mejorMs));
+
+  elementoProgresoGrafico.innerHTML = "";
+  progreso.grupos.forEach((grupo) => {
+    const columna = document.createElement("div");
+    columna.className = "progreso-columna";
+
+    const barras = document.createElement("div");
+    barras.className = "progreso-barras";
+
+    const barraPromedio = document.createElement("div");
+    barraPromedio.className = "progreso-barra progreso-barra-promedio";
+    barraPromedio.style.height = `${(grupo.promedioMs / mejorMaximo) * 100}%`;
+    barraPromedio.title = `Promedio: ${formatearTiempo(grupo.promedioMs)}`;
+    barraPromedio.appendChild(crearEtiquetaValorEnSegundos(grupo.promedioMs));
+
+    const barraMejor = document.createElement("div");
+    barraMejor.className = "progreso-barra progreso-barra-mejor";
+    barraMejor.style.height = `${(grupo.mejorMs / mejorMaximo) * 100}%`;
+    barraMejor.title = `Mejor marca: ${formatearTiempo(grupo.mejorMs)}`;
+    barraMejor.appendChild(crearEtiquetaValorEnSegundos(grupo.mejorMs));
+
+    barras.appendChild(barraPromedio);
+    barras.appendChild(barraMejor);
+
+    const etiqueta = document.createElement("span");
+    etiqueta.className = "progreso-etiqueta";
+    etiqueta.textContent = grupo.etiqueta;
+
+    columna.appendChild(barras);
+    columna.appendChild(etiqueta);
+    elementoProgresoGrafico.appendChild(columna);
+  });
+
+  // Mostrar siempre el grupo más reciente (el gráfico puede tener más
+  // columnas de las que entran en el ancho visible).
+  elementoProgresoGrafico.scrollLeft = elementoProgresoGrafico.scrollWidth;
+}
+
 function mostrarAviso(mensaje) {
   elementoAviso.textContent = mensaje;
 }
@@ -235,7 +352,9 @@ function actualizarRecordEnPantalla() {
   }
 }
 
-// Pone en marcha el cronómetro desde cero.
+// Pone en marcha el cronómetro desde cero: SIEMPRE un intento nuevo arrancando
+// en 00:00, nunca sigue sumando desde un tiempo final que haya quedado
+// congelado en pantalla (ver parar()).
 // No hace nada si ya está corriendo, ni si todavía no se eligió un ejercicio (FR-002).
 function iniciar() {
   if (estado === ESTADO_CORRIENDO) {
@@ -261,13 +380,18 @@ function iniciar() {
   limpiarAviso();
   estado = ESTADO_CORRIENDO;
   momentoInicio = Date.now();
+  ultimoMultiploDePitidoEmitido = 0; // este intento nuevo todavía no hizo sonar ningún pitido
+  // El cronómetro puede estar mostrando el tiempo final congelado del
+  // intento anterior (ver parar()): se lo pisa a 00:00 de entrada, para no
+  // esperar hasta el primer tick del intervalo de abajo.
+  elementoCronometro.textContent = formatearTiempo(0);
   elementoEjercicioSelect.disabled = true; // FR-012: no se puede cambiar el ejercicio corriendo
   elementoEjercicioNuevo.disabled = true;
   elementoCategoriaNueva.disabled = true;
   elementoCategoriaNuevaTexto.disabled = true;
   elementoBotonAnterior.disabled = true;
   elementoBotonSiguiente.disabled = true;
-  elementoBotonReset.disabled = false;
+  elementoBotonReset.disabled = true; // el reset solo tiene sentido con el cronómetro detenido
   elementoBotonPlay.innerHTML = ICONO_STOP;
   elementoBotonPlay.setAttribute("aria-label", "Parar");
   elementoBotonPlay.classList.add("en-curso");
@@ -276,7 +400,11 @@ function iniciar() {
   idIntervalo = setInterval(actualizarCronometroEnPantalla, 200);
 }
 
-// Detiene el cronómetro, guarda el intento (datos.js) y vuelve todo a cero.
+// Detiene el cronómetro, guarda el intento (datos.js) y deja el tiempo final
+// congelado en pantalla (no lo vuelve a poner en 00:00): así se puede ver
+// cuánto duró el intento que se acaba de terminar. Para limpiar la vista a
+// 00:00 sin arrancar nada nuevo está el botón de reset (reiniciarCronometro());
+// para arrancar un intento nuevo, iniciar() siempre pisa este valor congelado.
 // No hace nada si el cronómetro ya estaba detenido.
 function parar() {
   if (estado !== ESTADO_CORRIENDO) {
@@ -284,7 +412,7 @@ function parar() {
   }
 
   const duracionMs = Date.now() - momentoInicio;
-  clearInterval(idIntervalo);
+  clearInterval(idIntervalo); // también corta el pitido cada 10s: sin este intervalo, no se vuelve a disparar
   idIntervalo = null;
 
   const ejercicio = obtenerEjercicioActual();
@@ -298,15 +426,33 @@ function parar() {
   elementoCategoriaNuevaTexto.disabled = false;
   elementoBotonAnterior.disabled = false;
   elementoBotonSiguiente.disabled = false;
-  elementoBotonReset.disabled = true;
+  elementoBotonReset.disabled = false; // ya detenido: el reset vuelve a estar disponible
   elementoBotonPlay.innerHTML = ICONO_PLAY;
   elementoBotonPlay.setAttribute("aria-label", "Iniciar");
   elementoBotonPlay.classList.remove("en-curso");
   elementoEstadoTexto.textContent = "LISTO";
-  elementoCronometro.textContent = formatearTiempo(0);
+  // El último valor que pintó el intervalo puede tener hasta 200ms de
+  // atraso; se pisa con la duración exacta recién calculada para que quede
+  // congelado el tiempo final preciso, no un valor intermedio.
+  elementoCronometro.textContent = formatearTiempo(duracionMs);
 
   actualizarRecordEnPantalla(); // por si este intento recién guardado es la nueva mejor marca
   actualizarRachaEnPantalla(); // por si este intento es el primero de hoy (o de un domingo)
+  actualizarProgresoEnPantalla(); // por si este intento cambia el grupo (día o semana) que se ve
+  actualizarRetosEnPantalla(); // función de retos.js: por si este intento cumple algún reto nuevo
+}
+
+// Vuelve el cronómetro a 00:00 en pantalla, sin guardar nada como intento ni
+// tocar ningún dato ya guardado (récords, intentos anteriores): solo afecta
+// lo que se está viendo en este momento. Pensado para "limpiar la vista",
+// por ejemplo si te confundiste de ejercicio antes de arrancar. El botón ya
+// queda deshabilitado mientras el cronómetro está corriendo (ver
+// iniciar()/parar()); este chequeo es solo un resguardo extra.
+function reiniciarCronometro() {
+  if (estado === ESTADO_CORRIENDO) {
+    return;
+  }
+  elementoCronometro.textContent = formatearTiempo(0);
 }
 
 // Se llama cada 200ms mientras el cronómetro está corriendo, para refrescar
@@ -314,6 +460,44 @@ function parar() {
 function actualizarCronometroEnPantalla() {
   const transcurrido = Date.now() - momentoInicio;
   elementoCronometro.textContent = formatearTiempo(transcurrido);
+
+  // Pitido cada 10s (10, 20, 30...): se dispara una sola vez por cada
+  // múltiplo nuevo que se cruza, no en cada tick de los 200ms.
+  const multiploActual = Math.floor(transcurrido / 10000);
+  if (multiploActual > ultimoMultiploDePitidoEmitido) {
+    ultimoMultiploDePitidoEmitido = multiploActual;
+    reproducirPitido();
+  }
+}
+
+// ---------- Pantalla activa (Wake Lock) ----------
+// Evita que el celular bloquee la pantalla solo mientras la app está
+// abierta, para no perder el reconocimiento de voz a mitad de un
+// entrenamiento (que es lo que pasaba antes: al bloquearse la pantalla, el
+// sistema le corta el micrófono a la app). Si el navegador no soporta esta
+// API (por ejemplo Firefox o Safari en algunas versiones), esta función no
+// hace nada y el resto de la app sigue funcionando igual que antes.
+let wakeLock = null;
+
+async function pedirPantallaActiva() {
+  if (!("wakeLock" in navigator)) {
+    return;
+  }
+
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    // El navegador puede soltar el wake lock por su cuenta (por ejemplo, al
+    // cambiar de pestaña o minimizar la app); se vuelve a pedir apenas la
+    // página vuelve a primer plano (ver el "visibilitychange" más abajo).
+    wakeLock.addEventListener("release", () => {
+      wakeLock = null;
+    });
+  } catch (error) {
+    // No es un error grave (por ejemplo, falla si se pide justo cuando la
+    // pestaña no está visible): la app sigue funcionando igual, solo sin
+    // este resguardo hasta el próximo intento.
+    console.warn("No se pudo mantener la pantalla activa:", error);
+  }
 }
 
 // Cuando la página termina de cargar: buscar los elementos del HTML,
@@ -339,6 +523,10 @@ window.addEventListener("DOMContentLoaded", () => {
   elementoRachaUnidad = document.getElementById("racha-unidad");
   elementoRachaDias = document.getElementById("racha-dias");
   elementoMensajeDomingo = document.getElementById("mensaje-domingo");
+  elementoProgresoPeriodo = document.getElementById("progreso-periodo");
+  elementoProgresoVacio = document.getElementById("progreso-vacio");
+  elementoProgresoGrafico = document.getElementById("progreso-grafico");
+  elementoProgresoLeyenda = document.getElementById("progreso-leyenda");
 
   elementoCronometro.textContent = formatearTiempo(0);
   poblarSelectEjercicios();
@@ -346,6 +534,17 @@ window.addEventListener("DOMContentLoaded", () => {
   actualizarRecordEnPantalla(); // mostrar el récord del ejercicio ya seleccionado por defecto
   actualizarCarruselDisplay(); // mostrar nombre + categoría del ejercicio ya seleccionado
   actualizarRachaEnPantalla(); // mostrar la racha real (antes era un dato de ejemplo fijo)
+  actualizarProgresoEnPantalla(); // mostrar el gráfico del ejercicio ya seleccionado por defecto
+
+  pedirPantallaActiva(); // no dejar que el celular bloquee la pantalla solo mientras se entrena
+  // El wake lock se suelta solo cuando la pestaña deja de estar visible
+  // (por ejemplo, al ir a otra app); apenas se vuelve a esta pestaña hay
+  // que volver a pedirlo, o queda sin efecto el resto de la sesión.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      pedirPantallaActiva();
+    }
+  });
 
   // Al elegir "+ Agregar nuevo ejercicio" aparece el formulario (nombre +
   // categoría); al elegir cualquier otro ejercicio, se oculta. Esto pasa
@@ -363,10 +562,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     actualizarRecordEnPantalla();
     actualizarCarruselDisplay();
+    actualizarProgresoEnPantalla();
   });
 
-  // Cada vez que se escribe o cambia el ejercicio, se actualiza el récord mostrado.
-  elementoEjercicioNuevo.addEventListener("input", actualizarRecordEnPantalla);
+  // Cada vez que se escribe o cambia el ejercicio, se actualiza el récord y
+  // el gráfico de progreso mostrados (para un nombre nuevo, sin guardar
+  // todavía, el gráfico va a mostrar el mensaje de "sin datos").
+  elementoEjercicioNuevo.addEventListener("input", () => {
+    actualizarRecordEnPantalla();
+    actualizarProgresoEnPantalla();
+  });
 
   // Al elegir "+ Otra categoría" aparece el campo para escribirla; al elegir
   // cualquiera de las categorías ya conocidas, se oculta.
@@ -383,9 +588,9 @@ window.addEventListener("DOMContentLoaded", () => {
   elementoBotonAnterior.addEventListener("click", () => moverSelector(-1));
   elementoBotonSiguiente.addEventListener("click", () => moverSelector(1));
 
-  // Un solo botón central hace de "Iniciar"/"Parar" según el estado; el botón
-  // de reset queda deshabilitado salvo mientras el cronómetro está corriendo
-  // (mismo comportamiento que antes tenía "Parar", que no hacía nada detenido).
+  // Un solo botón central hace de "Iniciar"/"Parar" según el estado (guarda el
+  // intento al parar); el de reset es aparte y solo limpia la vista a 00:00
+  // sin guardar nada, así que solo está habilitado con el cronómetro detenido.
   elementoBotonPlay.addEventListener("click", alternarPlay);
-  elementoBotonReset.addEventListener("click", parar);
+  elementoBotonReset.addEventListener("click", reiniciarCronometro);
 });
