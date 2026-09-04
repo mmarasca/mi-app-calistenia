@@ -81,11 +81,14 @@ function reproducirPitido() {
 
     // Pitido corto (150ms), un tono simple que se apaga solo: no hace falta
     // pararlo a mano al parar/resetear el cronómetro (ver más abajo).
+    // El volumen lo maneja el GainNode ("ganancia.gain", de 0 a 1): estaba en
+    // 0.15 y se escuchaba muy bajo para entrenar, así que se subió a 0.6
+    // (todavía lejos de 1 para no saturar/distorsionar el parlante).
     const oscilador = contextoAudio.createOscillator();
     const ganancia = contextoAudio.createGain();
     oscilador.type = "sine";
     oscilador.frequency.value = 880;
-    ganancia.gain.setValueAtTime(0.15, contextoAudio.currentTime);
+    ganancia.gain.setValueAtTime(0.6, contextoAudio.currentTime);
     ganancia.gain.exponentialRampToValueAtTime(0.0001, contextoAudio.currentTime + 0.15);
 
     oscilador.connect(ganancia);
@@ -120,6 +123,26 @@ function desbloquearAudioAlPrimerToque() {
 
 document.addEventListener("pointerdown", desbloquearAudioAlPrimerToque, { once: true });
 document.addEventListener("keydown", desbloquearAudioAlPrimerToque, { once: true });
+
+// ---------- Feedback hablado ("Go" / "Stop") ----------
+// Confirma en voz alta que el comando surtió efecto, sin tener que mirar la
+// pantalla. Se llama siempre desde iniciar()/parar() (no desde voz.js ni
+// desde los botones por separado), así que funciona igual sin importar
+// cómo se haya arrancado o parado el cronómetro. Usa la Web Speech
+// Synthesis API del navegador (sin ningún archivo de audio ni librería); si
+// no está disponible, o falla, no hace nada y el resto sigue igual.
+function decirEnVoz(texto) {
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+  try {
+    const anuncio = new SpeechSynthesisUtterance(texto);
+    anuncio.lang = "en-US"; // "Go"/"Stop" son palabras en inglés: así se pronuncian bien
+    window.speechSynthesis.speak(anuncio);
+  } catch (error) {
+    console.warn("No se pudo anunciar por voz:", error);
+  }
+}
 
 // Devuelve el nombre del ejercicio elegido en este momento: si está
 // seleccionada la opción "+ Agregar nuevo ejercicio", toma lo escrito en el
@@ -420,6 +443,7 @@ function iniciar() {
   elementoBotonPlay.setAttribute("aria-label", "Parar");
   elementoBotonPlay.classList.add("en-curso");
   elementoEstadoTexto.textContent = "EN CURSO";
+  decirEnVoz("Go"); // confirmación hablada de que arrancó, sin tener que mirar la pantalla
 
   idIntervalo = setInterval(actualizarCronometroEnPantalla, 200);
 }
@@ -455,6 +479,7 @@ function parar() {
   elementoBotonPlay.setAttribute("aria-label", "Iniciar");
   elementoBotonPlay.classList.remove("en-curso");
   elementoEstadoTexto.textContent = "LISTO";
+  decirEnVoz("Stop"); // confirmación hablada de que paró, sin tener que mirar la pantalla
   // El último valor que pintó el intervalo puede tener hasta 200ms de
   // atraso; se pisa con la duración exacta recién calculada para que quede
   // congelado el tiempo final preciso, no un valor intermedio.
