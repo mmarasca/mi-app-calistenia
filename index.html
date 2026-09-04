@@ -3,7 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cronómetro por Voz - Calistenia</title>
+  <title>Calira</title>
+
+  <!-- PWA: instalable desde Chrome/Android ("Agregar a pantalla de inicio"). -->
+  <!-- A propósito, todavía SIN service worker (nada de funcionamiento -->
+  <!-- offline por ahora): esto solo habilita el cartel/opción de instalar. -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+
+  <!-- Ícono de pestaña e íconos para instalar (ver icons/icon.svg, la fuente -->
+  <!-- vectorial de la que salen los .png de distintos tamaños del manifest). -->
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>

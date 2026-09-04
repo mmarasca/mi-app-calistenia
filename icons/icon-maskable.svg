@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Misma imagen que icon.svg, pero pensada para "maskable": el fondo va
+       de punta a punta (sin esquinas redondeadas propias, el sistema le va
+       a aplicar su propia forma de recorte) y el dibujo se achica y centra
+       para quedar dentro de la "zona segura" que no se recorta. -->
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <g transform="translate(256,256) scale(0.82) translate(-256,-260)">
+    <rect x="228" y="60" width="56" height="46" rx="14" fill="#ffd166"/>
+    <circle cx="256" cy="280" r="168" fill="none" stroke="#ffd166" stroke-width="26"/>
+    <g stroke="#ffd166" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M206 366 L256 320 L306 366"/>
+      <path d="M256 320 L256 190"/>
+      <path d="M256 190 L226 156"/>
+      <path d="M256 190 L286 156"/>
+    </g>
+    <circle cx="256" cy="352" r="17" fill="#ffd166"/>
+  </g>
+</svg>
